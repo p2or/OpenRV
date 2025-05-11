@@ -522,12 +522,18 @@ jobs:
       #   run: |
       #     cmake --version
       #     cmake -B _build -G "Ninja" -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} -DRV_DEPS_QT5_LOCATION=$QT_HOME -DRV_VFX_PLATFORM=${{ matrix.vfx-platform }}
-
+      
+      # Custom CMake configuration for CY2024.
       - name: Configure OpenRV
         if: ${{ matrix.vfx-platform == 'CY2024' }}
         run: |
           cmake --version
-          cmake -B _build -G "Ninja" -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} -DRV_DEPS_QT6_LOCATION=$QT_HOME -DRV_VFX_PLATFORM=${{ matrix.vfx-platform }}
+          cmake -B _build -G "Ninja" \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} \
+            -DRV_DEPS_QT6_LOCATION=$QT_HOME \
+            -DRV_VFX_PLATFORM=${{ matrix.vfx-platform }} \
+            -DRV_FFMPEG_NON_FREE_DECODERS_TO_ENABLE="aac;aac_at;aac_fixed;aac_latm;bink;binkaudio_dct;binkaudio_rdft;dnxhd;dvvideo;prores;qtrle;vp9;vp9_cuvid;vp9_mediacodec;vp9_qsv;vp9_rkmpp;vp9_v4l2m2m" \
+            -DRV_FFMPEG_NON_FREE_ENCODERS_TO_ENABLE="aac;aac_mf;dnxhd;dvvideo;prores;qtrle;vp9_qsv;vp9_vaapi" 
 
       - name: Build OpenRV dependencies
         if: steps.cmake-dependencies.outputs.cache-hit != 'true'
@@ -547,10 +553,11 @@ jobs:
         run: |
           cmake --install _build --prefix $(pwd)/_install --config ${{ matrix.build-type }}
       
-      # Create the archive of OpenRV and upload it.
-      - name: Create Archive of OpenRV Install
+      # Create an archive of OpenRV and upload it.
+      - name: Create Archive of OpenRV Install Directory
         run: |
           cd _install
+          xattr -cr RV.app
           zip -r ../OpenRV-${{ matrix.os }}-${{ matrix.arch-type }}-${{ matrix.build-type }}.zip .
           cd ..
 
