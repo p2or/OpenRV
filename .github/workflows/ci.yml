@@ -532,6 +532,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ matrix.build-type }} \
             -DRV_DEPS_QT6_LOCATION=$QT_HOME \
             -DRV_VFX_PLATFORM=${{ matrix.vfx-platform }} \
+            -DRV_FFMPEG_USE_VIDEOTOOLBOX=OFF \
             -DRV_FFMPEG_NON_FREE_DECODERS_TO_ENABLE="aac;aac_at;aac_fixed;aac_latm;bink;binkaudio_dct;binkaudio_rdft;dnxhd;dvvideo;prores;qtrle;vp9;vp9_cuvid;vp9_mediacodec;vp9_qsv;vp9_rkmpp;vp9_v4l2m2m" \
             -DRV_FFMPEG_NON_FREE_ENCODERS_TO_ENABLE="aac;aac_mf;dnxhd;dvvideo;prores;qtrle;vp9_qsv;vp9_vaapi" 
 
