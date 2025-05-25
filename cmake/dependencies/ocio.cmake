@@ -153,7 +153,7 @@ LIST(APPEND _configure_options "-DImath_ROOT=${RV_DEPS_IMATH_ROOT_DIR}")
 LIST(APPEND _configure_options "-DZLIB_ROOT=${RV_DEPS_ZLIB_ROOT_DIR}")
 
 # OCIO apps are not needed.
-LIST(APPEND _configure_options "-DOCIO_BUILD_APPS=OFF")
+LIST(APPEND _configure_options "-DOCIO_BUILD_APPS=ON")
 
 IF(NOT RV_TARGET_WINDOWS)
   EXTERNALPROJECT_ADD(
@@ -230,7 +230,7 @@ ELSE() # Windows
     "-DOCIO_BUILD_GPU_TESTS=OFF"
     "-DOCIO_BUILD_DOCS=OFF"
     # OCIO apps are not needed.
-    "-DOCIO_BUILD_APPS=OFF"
+    "-DOCIO_BUILD_APPS=ON"
     "-DOCIO_WARNING_AS_ERROR=OFF"
     "-DOCIO_BUILD_JAVA=OFF"
     "${_ocio_simd_options_str}"
@@ -332,6 +332,16 @@ IF(RV_TARGET_WINDOWS)
   ENDIF()
 ENDIF()
 
+# Define path to OCIO binaries
+SET(_ocio_apps_bin_dir "${_install_dir}/bin")
+
+# Copy OCIO applications to bin directory
+ADD_CUSTOM_COMMAND(
+  TARGET ${_target}
+  POST_BUILD
+  COMMENT "Copying OCIO applications to '${RV_STAGE_BIN_DIR}'."
+  COMMAND ${CMAKE_COMMAND} -E copy_directory ${_ocio_apps_bin_dir} ${RV_STAGE_BIN_DIR}
+)
 # The macro is using existing _target, _libname, _lib_dir and _bin_dir variabless
 RV_COPY_LIB_BIN_FOLDERS()
 
