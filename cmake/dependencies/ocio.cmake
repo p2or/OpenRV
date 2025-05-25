@@ -214,6 +214,11 @@ ELSE() # Windows
     "-DZLIB_INCLUDE_DIR=${_zlib_include_dir}"
     "-Dexpat_ROOT=${RV_DEPS_EXPAT_ROOT_DIR}"
     "-DImath_DIR=${RV_DEPS_IMATH_ROOT_DIR}/lib/cmake/Imath"
+    "-DUSE_EXTERNAL_IMATH=ON"
+    "-DOpenEXR_ROOT=${RV_DEPS_OPENEXR_ROOT_DIR}/install"
+    "-DOpenEXR_DIR=${RV_DEPS_OPENEXR_ROOT_DIR}/install/lib/cmake/OpenEXR"
+    "-DOpenEXR_IMATH_LIBRARY=${RV_DEPS_IMATH_ROOT_DIR}/lib/Imath-3_1.lib"
+    "-DCMAKE_EXE_LINKER_FLAGS=/VERBOSE:LIB /NODEFAULTLIB:LIBCMT"
     "-DPython_ROOT=${RV_DEPS_BASE_DIR}/RV_DEPS_PYTHON3/install"
     # Mandatory param: OCIO CMake code finds Python.
     "-DPython_LIBRARY=${RV_DEPS_BASE_DIR}/RV_DEPS_PYTHON3/install/bin/python${PYTHON_VERSION_SHORT_NO_DOT}.lib"                                                                                                # with this param
