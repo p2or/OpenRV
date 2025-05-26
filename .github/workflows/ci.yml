@@ -555,16 +555,24 @@ jobs:
           cmake --install _build --prefix $(pwd)/_install --config ${{ matrix.build-type }}
       
       # Copy libX11.6.dylib into the app bundle
-      # Find all binaries and dylibs that link to libX11.6.dylib and fix them
-      - name: Bundle and relink libX11
+      # Find all binaries and dylibs that link to libX11.6.dylib and relink them
+      - name: Bundle and relink X11 dependencies
         run: |
-          mkdir -p _install/RV.app/Contents/Frameworks
-          cp /opt/homebrew/opt/libx11/lib/libX11.6.dylib _install/RV.app/Contents/Frameworks/
-          find _install/RV.app/Contents/{MacOS,lib,Frameworks} -type f \( -perm +111 -or -name "*.dylib" \) | while read f; do
-            if otool -L "$f" | grep -q "/opt/homebrew/opt/libx11/lib/libX11.6.dylib"; then
-              install_name_tool -change /opt/homebrew/opt/libx11/lib/libX11.6.dylib @executable_path/../Frameworks/libX11.6.dylib "$f"
-            fi
+          for lib in libX11.6.dylib libxcb.1.dylib libXau.6.dylib libXdmcp.6.dylib; do
+            cp /opt/homebrew/opt/${lib%%.*}/lib/$lib _install/RV.app/Contents/Frameworks/
           done
+
+          # Fix up all references in all dylibs and the main executable
+          find _install/RV.app/Contents/{MacOS,lib,Frameworks} -type f \( -perm +111 -or -name "*.dylib" \) | while read f; do
+            for dep in libX11.6.dylib libxcb.1.dylib libXau.6.dylib libXdmcp.6.dylib; do
+              if otool -L "$f" | grep -q "/opt/homebrew/opt/${dep%%.*}/lib/$dep"; then
+                install_name_tool -change /opt/homebrew/opt/${dep%%.*}/lib/$dep @executable_path/../Frameworks/$dep "$f"
+              fi
+            done
+          done
+      - name: Check for Homebrew links
+        run: |
+          otool -L _install/RV.app/Contents/{MacOS,lib,Frameworks}/* | grep /opt/homebrew || echo "No Homebrew links found!"
 
       # Create an archive of OpenRV and upload it.
       - name: Create Archive of OpenRV Install Directory
