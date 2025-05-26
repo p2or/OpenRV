@@ -476,7 +476,7 @@ jobs:
         # icu4c is needed for Qt UIC executable / AUTOUIC.
         # Might be to find another way to install icu4c if the icu4c recipe disappear.
         run: |
-          brew install --formula cmake ninja readline sqlite3 xz zlib tcl-tk@8 python-tk autoconf automake libtool python yasm clang-format black meson nasm pkg-config glew
+          brew install --formula cmake ninja readline sqlite3 xz zlib tcl-tk@8 python-tk autoconf automake libtool python yasm clang-format black meson nasm pkg-config glew libx11
           brew install --formula icu4c
 
       # - name: Set QT_HOME
@@ -554,6 +554,18 @@ jobs:
         run: |
           cmake --install _build --prefix $(pwd)/_install --config ${{ matrix.build-type }}
       
+      # Copy libX11.6.dylib into the app bundle
+      # Find all binaries and dylibs that link to libX11.6.dylib and fix them
+      - name: Bundle and relink libX11
+        run: |
+          mkdir -p _install/RV.app/Contents/Frameworks
+          cp /opt/homebrew/opt/libx11/lib/libX11.6.dylib _install/RV.app/Contents/Frameworks/
+          find _install/RV.app/Contents/{MacOS,lib,Frameworks} -type f \( -perm +111 -or -name "*.dylib" \) | while read f; do
+            if otool -L "$f" | grep -q "/opt/homebrew/opt/libx11/lib/libX11.6.dylib"; then
+              install_name_tool -change /opt/homebrew/opt/libx11/lib/libX11.6.dylib @executable_path/../Frameworks/libX11.6.dylib "$f"
+            fi
+          done
+
       # Create an archive of OpenRV and upload it.
       - name: Create Archive of OpenRV Install Directory
         run: |
