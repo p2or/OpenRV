@@ -554,7 +554,11 @@ jobs:
         run: |
           cmake --install _build --prefix $(pwd)/_install --config ${{ matrix.build-type }}
       
-      # Copy libX11.6.dylib into the app bundle
+      # Deployment steps for macOS
+      - name: Run macdeployqt
+        run: |
+          "$QT_HOME/bin/macdeployqt" _install/RV.app -verbose=2
+      
       # Find all binaries and dylibs that link to libX11.6.dylib and relink them
       - name: Bundle and relink X11 dependencies
         run: |
