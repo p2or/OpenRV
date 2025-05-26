@@ -560,20 +560,19 @@ jobs:
           "$QT_HOME/bin/macdeployqt" _install/RV.app -verbose=2
       
       # Find all binaries and dylibs that link to libX11.6.dylib and relink them
-      - name: Bundle and relink X11 dependencies
+      - name: Bundle X11 dependencies
         run: |
           for lib in libX11.6.dylib libxcb.1.dylib libXau.6.dylib libXdmcp.6.dylib; do
             cp /opt/homebrew/opt/${lib%%.*}/lib/$lib _install/RV.app/Contents/Frameworks/
           done
-          install_name_tool -change /opt/homebrew/opt/libxdmcp/lib/libXdmcp.6.dylib @executable_path/../Frameworks/libXdmcp.6.dylib _install/RV.app/Contents/Frameworks/libxcb.1.dylib
-          install_name_tool -change /opt/homebrew/opt/libxau/lib/libXau.6.dylib @executable_path/../Frameworks/libXau.6.dylib _install/RV.app/Contents/Frameworks/libxcb.1.dylib
-          install_name_tool -change /opt/homebrew/opt/libx11/lib/libX11.6.dylib @executable_path/../Frameworks/libX11.6.dylib _install/RV.app/Contents/lib/libswresample.4.dylib
-          install_name_tool -change /opt/homebrew/opt/libx11/lib/libX11.6.dylib @executable_path/../Frameworks/libX11.6.dylib _install/RV.app/Contents/lib/libavutil.58.dylib
+          # install_name_tool -change /opt/homebrew/opt/libxdmcp/lib/libXdmcp.6.dylib @executable_path/../Frameworks/libXdmcp.6.dylib _install/RV.app/Contents/Frameworks/libxcb.1.dylib
+          # install_name_tool -change /opt/homebrew/opt/libxau/lib/libXau.6.dylib @executable_path/../Frameworks/libXau.6.dylib _install/RV.app/Contents/Frameworks/libxcb.1.dylib
+          # install_name_tool -change /opt/homebrew/opt/libx11/lib/libX11.6.dylib @executable_path/../Frameworks/libX11.6.dylib _install/RV.app/Contents/lib/libswresample.4.dylib
+          # install_name_tool -change /opt/homebrew/opt/libx11/lib/libX11.6.dylib @executable_path/../Frameworks/libX11.6.dylib _install/RV.app/Contents/lib/libavutil.58.dylib
       
       - name: Check for Homebrew links
         run: |
           otool -L _install/RV.app/Contents/{MacOS,lib,Frameworks}/* | grep /opt/homebrew || echo "No Homebrew links found!"
-
 
       # Create an archive of OpenRV and upload it.
       - name: Create Archive of OpenRV Install Directory
