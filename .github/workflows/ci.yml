@@ -563,16 +563,16 @@ jobs:
         run: |
           brew install dylibbundler
       
-      - name: Copy X11 libraries explicitly
-        run: |
-          cp /opt/homebrew/opt/libx11/lib/libX11.6.dylib _install/RV.app/Contents/Frameworks/
-          cp /opt/homebrew/opt/libxcb/lib/libxcb.1.dylib _install/RV.app/Contents/Frameworks/
-          cp /opt/homebrew/opt/libxau/lib/libXau.6.dylib _install/RV.app/Contents/Frameworks/
-          cp /opt/homebrew/opt/libxdmcp/lib/libXdmcp.6.dylib _install/RV.app/Contents/Frameworks/
+      # - name: Copy X11 libraries explicitly
+      #   run: |
+      #     cp /opt/homebrew/opt/libx11/lib/libX11.6.dylib _install/RV.app/Contents/Frameworks/
+      #     cp /opt/homebrew/opt/libxcb/lib/libxcb.1.dylib _install/RV.app/Contents/Frameworks/
+      #     cp /opt/homebrew/opt/libxau/lib/libXau.6.dylib _install/RV.app/Contents/Frameworks/
+      #     cp /opt/homebrew/opt/libxdmcp/lib/libXdmcp.6.dylib _install/RV.app/Contents/Frameworks/
       
       - name: Bundle remaining dependencies
         run: |
-          dylibbundler -b -x _install/RV.app/Contents/Frameworks/libX11.6.dylib -d _install/RV.app/Contents/Frameworks/ -p @executable_path/../Frameworks/ -s /opt/homebrew/opt/libx11/lib -s /opt/homebrew/opt/libxcb/lib -s /opt/homebrew/opt/libxau/lib -s /opt/homebrew/opt/libxdmcp/lib
+          dylibbundler -b -f -x _install/RV.app/Contents/Frameworks/libX11.6.dylib -d _install/RV.app/Contents/Frameworks/ -p @executable_path/../Frameworks/ -s /opt/homebrew/opt/libx11/lib -s /opt/homebrew/opt/libxcb/lib -s /opt/homebrew/opt/libxau/lib -s /opt/homebrew/opt/libxdmcp/lib
       
       # - name: Fix any binaries that link to X11
       #   run: |
