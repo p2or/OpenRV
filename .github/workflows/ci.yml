@@ -555,20 +555,20 @@ jobs:
           cmake --install _build --prefix $(pwd)/_install --config ${{ matrix.build-type }}
       
       # Deployment steps for macOS
-      - name: Run macdeployqt
-        run: |
-          "$QT_HOME/bin/macdeployqt" _install/RV.app -verbose=2
+      # - name: Run macdeployqt
+      #   run: |
+      #     "$QT_HOME/bin/macdeployqt" _install/RV.app -verbose=2
 
       - name: Install dylibbundler
         run: |
           brew install dylibbundler
       
-      # - name: Copy X11 libraries explicitly
-      #   run: |
-      #     cp /opt/homebrew/opt/libx11/lib/libX11.6.dylib _install/RV.app/Contents/Frameworks/
-      #     cp /opt/homebrew/opt/libxcb/lib/libxcb.1.dylib _install/RV.app/Contents/Frameworks/
-      #     cp /opt/homebrew/opt/libxau/lib/libXau.6.dylib _install/RV.app/Contents/Frameworks/
-      #     cp /opt/homebrew/opt/libxdmcp/lib/libXdmcp.6.dylib _install/RV.app/Contents/Frameworks/
+      - name: Copy X11 libraries explicitly
+        run: |
+          cp /opt/homebrew/opt/libx11/lib/libX11.6.dylib _install/RV.app/Contents/Frameworks/
+          cp /opt/homebrew/opt/libxcb/lib/libxcb.1.dylib _install/RV.app/Contents/Frameworks/
+          cp /opt/homebrew/opt/libxau/lib/libXau.6.dylib _install/RV.app/Contents/Frameworks/
+          cp /opt/homebrew/opt/libxdmcp/lib/libXdmcp.6.dylib _install/RV.app/Contents/Frameworks/
       
       - name: Bundle remaining dependencies
         run: |
@@ -587,7 +587,7 @@ jobs:
       - name: Create Archive of OpenRV Install Directory
         run: |
           cd _install
-          xattr -cr RV.app
+          #xattr -cr RV.app
           zip -r ../OpenRV-${{ matrix.os }}-${{ matrix.arch-type }}-${{ matrix.build-type }}.zip .
           cd ..
 
