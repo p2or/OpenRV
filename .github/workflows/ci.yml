@@ -562,11 +562,18 @@ jobs:
       - name: Install dylibbundler
         run: |
           brew install dylibbundler
-
-      - name: Bundle all dependencies with dylibbundler
+      
+      - name: Copy X11 libraries explicitly
+        run: |
+          cp /opt/homebrew/opt/libx11/lib/libX11.6.dylib _install/RV.app/Contents/Frameworks/
+          cp /opt/homebrew/opt/libxcb/lib/libxcb.1.dylib _install/RV.app/Contents/Frameworks/
+          cp /opt/homebrew/opt/libxau/lib/libXau.6.dylib _install/RV.app/Contents/Frameworks/
+          cp /opt/homebrew/opt/libxdmcp/lib/libXdmcp.6.dylib _install/RV.app/Contents/Frameworks/
+      
+      - name: Bundle remaining dependencies
         run: |
           dylibbundler -b -x _install/RV.app/Contents/MacOS/RV -d _install/RV.app/Contents/Frameworks/ -p @executable_path/../Frameworks/
-
+      
       - name: Check for Homebrew links
         run: |
           otool -L _install/RV.app/Contents/{MacOS,lib,Frameworks}/* | grep /opt/homebrew || echo "No Homebrew links found!"
