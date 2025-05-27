@@ -572,11 +572,16 @@ jobs:
       
       - name: Bundle remaining dependencies
         run: |
-          dylibbundler -b -x _install/RV.app/Contents/MacOS/RV -d _install/RV.app/Contents/Frameworks/ -p @executable_path/../Frameworks/
+          dylibbundler -b -x _install/RV.app/Contents/Frameworks/libX11.6.dylib -d _install/RV.app/Contents/Frameworks/ -p @executable_path/../Frameworks/ -s /opt/homebrew/opt/libx11/lib -s /opt/homebrew/opt/libxcb/lib -s /opt/homebrew/opt/libxau/lib -s /opt/homebrew/opt/libxdmcp/lib
       
-      - name: Check for Homebrew links
-        run: |
-          otool -L _install/RV.app/Contents/{MacOS,lib,Frameworks}/* | grep /opt/homebrew || echo "No Homebrew links found!"
+      # - name: Fix any binaries that link to X11
+      #   run: |
+      #     find _install/RV.app -type f -exec file {} \; | grep Mach-O | cut -d: -f1 | while read binary; do
+      #       if otool -L "$binary" 2>/dev/null | grep -q "/opt/homebrew/opt/libx11/lib/libX11"; then
+      #         echo "Fixing $binary"
+      #         install_name_tool -change /opt/homebrew/opt/libx11/lib/libX11.6.dylib @executable_path/../Frameworks/libX11.6.dylib "$binary" 2>/dev/null || true
+      #       fi
+      #     done
 
       # Create an archive of OpenRV and upload it.
       - name: Create Archive of OpenRV Install Directory
