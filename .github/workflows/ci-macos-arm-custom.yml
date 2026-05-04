@@ -1,0 +1,158 @@
+name: OpenRV macOS ARM (Custom)
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: Build type
+        required: true
+        type: choice
+        default: Release
+        options:
+          - Release
+          - Debug
+      vfx_platform:
+        description: VFX platform
+        required: true
+        type: choice
+        default: CY2024
+        options:
+          - CY2024
+          - CY2025
+      qt_version:
+        description: Qt version
+        required: false
+        type: string
+        default: '6.5.3'
+      python_version:
+        description: Python version
+        required: false
+        type: string
+        default: '3.11'
+      cmake_version:
+        description: CMake version
+        required: false
+        type: string
+        default: '3.31.6'
+
+env:
+  MACOS_QT6_MODULES: 'debug_info qt3d qt5compat qtcharts qtconnectivity qtdatavis3d qtgrpc qthttpserver qtimageformats qtlanguageserver qtlocation qtlottie qtmultimedia qtnetworkauth qtpdf qtpositioning qtquick3d qtquick3dphysics qtquickeffectmaker qtquicktimeline qtremoteobjects qtscxml qtsensors qtserialbus qtserialport qtshadertools qtspeech qtvirtualkeyboard qtwebchannel qtwebengine qtwebsockets qtwebview'
+  MACOS_QT6_ARCHIVES: 'qtbase qtdeclarative qtsvg qttools qttranslations'
+
+jobs:
+  macos-arm-custom:
+    name: 'macOS arm64 ${{ inputs.vfx_platform }} <qt=${{ inputs.qt_version }}, python=${{ inputs.python_version }}, config=${{ inputs.build_type }}>'
+    runs-on: macos-15
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        with:
+          submodules: recursive
+
+      - name: Display disk space
+        run: df -h /
+
+      - name: Clear up some spaces on disk
+        run: |
+          sudo rm -rf /Applications/Xcode_15.3.app
+          sudo rm -rf /Applications/Xcode_15.2.app
+          sudo rm -rf /Applications/Xcode_15.1.app
+          sudo rm -rf /Applications/Xcode_15.0.1.app
+          sudo rm -rf /Users/runner/Library/Android
+
+      - name: Install cmake
+        uses: jwlawson/actions-setup-cmake@802fa1a2c4e212495c05bf94dba2704a92a472be # v2
+        with:
+          cmake-version: "${{ inputs.cmake_version }}"
+
+      - name: Prepare Qt folder
+        run: mkdir -p "${{ github.workspace }}/deps"
+
+      - name: Install Qt ${{ inputs.qt_version }}
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '${{ inputs.qt_version }}'
+          host: 'mac'
+          target: 'desktop'
+          # clang_64 contains both x86_64 and arm64 for Qt 6.
+          arch: 'clang_64'
+          dir: "${{ github.workspace }}/deps"
+          install-deps: 'false'
+          modules: ${{ env.MACOS_QT6_MODULES }}
+          archives: ${{ env.MACOS_QT6_ARCHIVES }}
+          cache: false
+          setup-python: true
+          tools: 'tools_qtcreator'
+          set-env: 'true'
+          tools-only: 'false'
+          aqtversion: '==3.2.*'
+
+      - name: Activate Python ${{ inputs.python_version }}
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # 5.2.0
+        with:
+          python-version: '${{ inputs.python_version }}'
+
+      - name: Install Python dependencies
+        run: python3 -m pip install --user --upgrade -r requirements.txt
+
+      - name: Install Homebrew dependencies
+        run: |
+          retry_count=0
+          max_retries=5
+          until [ $retry_count -ge $max_retries ]; do
+            echo "Attempt $((retry_count + 1)) of $max_retries"
+            if brew install --formula ninja readline sqlite3 xz zlib tcl-tk@8 python-tk autoconf automake libtool python yasm clang-format black meson nasm pkg-config glew ccache && \
+               brew install --formula icu4c; then
+              echo "Homebrew dependencies installed successfully"
+              break
+            else
+              retry_count=$((retry_count + 1))
+              if [ $retry_count -lt $max_retries ]; then
+                echo "Attempt $retry_count failed. Retrying in 5 seconds..."
+                sleep 5
+              fi
+            fi
+          done
+          if [ $retry_count -ge $max_retries ]; then
+            echo "Failed to install Homebrew dependencies after $max_retries attempts"
+            exit 1
+          fi
+
+      - name: Set QT_HOME
+        run: echo "QT_HOME=${{ github.workspace }}/deps/Qt/${{ inputs.qt_version }}/macos" >> $GITHUB_ENV
+
+      - name: Configure OpenRV Custom
+        run: |
+          cmake --version
+          cmake -B _build -G "Ninja" \
+            -DCMAKE_BUILD_TYPE=${{ inputs.build_type }} \
+            -DRV_DEPS_QT_LOCATION=$QT_HOME \
+            -DRV_VFX_PLATFORM=${{ inputs.vfx_platform }} \
+            -DRV_FFMPEG_NON_FREE_DECODERS_TO_ENABLE="aac;aac_at;aac_fixed;aac_latm;ac3;bink;binkaudio_dct;binkaudio_rdft;dnxhd;dvvideo;prores;qtrle;vp9;vp9_cuvid;vp9_mediacodec;vp9_qsv;vp9_rkmpp;vp9_v4l2m2m" \
+            -DRV_FFMPEG_NON_FREE_ENCODERS_TO_ENABLE="aac;aac_mf;dnxhd;dvvideo;prores;qtrle;vp9_qsv;vp9_vaapi"
+
+      - name: Build OpenRV dependencies
+        run: cmake --build _build --config ${{ inputs.build_type }} --target dependencies --parallel=$(python -c 'import os; print(os.cpu_count())') -v
+
+      - name: Build OpenRV main executable
+        run: cmake --build _build --config ${{ inputs.build_type }} --target main_executable --parallel=$(python -c 'import os; print(os.cpu_count())') -v
+
+      - name: Tests
+        continue-on-error: true
+        run: ctest --test-dir _build -C ${{ inputs.build_type }} --extra-verbose
+
+      - name: Install OpenRV
+        run: cmake --install _build --prefix $(pwd)/_install --config ${{ inputs.build_type }}
+
+      - name: Create zip file of OpenRV installation
+        run: |
+          cd _install
+          zip -r ../OpenRV-macos-arm64-${{ inputs.build_type }}-${{ inputs.vfx_platform }}-custom.zip *
+
+      - name: Upload OpenRV Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenRV-macos-arm64-${{ inputs.build_type }}-${{ inputs.vfx_platform }}-custom
+          path: OpenRV-macos-arm64-${{ inputs.build_type }}-${{ inputs.vfx_platform }}-custom.zip
+          retention-days: 14

@@ -1,0 +1,242 @@
+name: OpenRV Windows (Custom)
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: Build type
+        required: true
+        type: choice
+        default: Release
+        options:
+          - Release
+          - Debug
+      vfx_platform:
+        description: VFX platform
+        required: true
+        type: choice
+        default: CY2024
+        options:
+          - CY2024
+          - CY2025
+      qt_version:
+        description: Qt version
+        required: false
+        type: string
+        default: '6.5.3'
+      python_version:
+        description: Python version
+        required: false
+        type: string
+        default: '3.11'
+      cmake_version:
+        description: CMake version
+        required: false
+        type: string
+        default: '3.31.6'
+
+env:
+  WINDOWS_QT6_MODULES: 'debug_info qt3d qt5compat qtactiveqt qtcharts qtconnectivity qtdatavis3d qtgrpc qthttpserver qtimageformats qtlanguageserver qtlocation qtlottie qtmultimedia qtnetworkauth qtpdf qtpositioning qtquick3d qtquick3dphysics qtquickeffectmaker qtquicktimeline qtremoteobjects qtscxml qtsensors qtserialbus qtserialport qtshadertools qtspeech qtvirtualkeyboard qtwebchannel qtwebengine qtwebsockets qtwebview'
+  WINDOWS_QT6_ARCHIVES: 'd3dcompiler_47 opengl32sw qtbase qtdeclarative qtsvg qttools qttranslations'
+  MSVC_COMPONENT: '14.40.17.10.x86.x64'
+  MSVC_COMPILER: '14.40.33807'
+
+jobs:
+  windows-custom:
+    name: 'Windows ${{ inputs.vfx_platform }} <qt=${{ inputs.qt_version }}, python=${{ inputs.python_version }}, config=${{ inputs.build_type }}>'
+    runs-on: windows-2022
+    env:
+      SCCACHE_GHA_ENABLED: false
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # 6.0.2
+        with:
+          submodules: recursive
+
+      - name: Install MSVC components ${{ env.MSVC_COMPONENT }}
+        run: |
+          Set-Location "C:\Program Files (x86)\Microsoft Visual Studio\Installer\"
+          $InstallPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise"
+          $componentsToRemove= @(
+            "Microsoft.VisualStudio.Component.VC.${{ env.MSVC_COMPONENT }}"
+            "Microsoft.VisualStudio.Component.VC.${{ env.MSVC_COMPONENT }}.Spectre"
+          )
+          [string]$workloadArgs = $componentsToRemove | ForEach-Object {" --add " +  $_}
+          $Arguments = ('/c', "vs_installer.exe", 'modify', '--installPath', "`"$InstallPath`"",$workloadArgs, '--quiet', '--norestart', '--nocache')
+          # should be run twice
+          $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
+          $process = Start-Process -FilePath cmd.exe -ArgumentList $Arguments -Wait -PassThru -WindowStyle Hidden
+        shell: powershell
+
+      - name: Set up MSVC ${{ env.MSVC_COMPILER }}
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          toolset: ${{ env.MSVC_COMPILER }}
+          arch: 'x86_64'
+
+      - name: Setup msys2 and install dependencies
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          cache: false
+          install: >-
+            mingw-w64-x86_64-autotools
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-cmake-cmcldeps
+            mingw-w64-x86_64-glew
+            mingw-w64-x86_64-libarchive
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-meson
+            mingw-w64-x86_64-toolchain
+            autoconf
+            automake
+            bison
+            flex
+            git
+            libtool
+            nasm
+            p7zip
+            patch
+            unzip
+            zip
+
+      - name: Activate Python ${{ inputs.python_version }}
+        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # 5.2.0
+        with:
+          python-version: '${{ inputs.python_version }}'
+
+      - name: Display Python installation location
+        run: python -c "import sys; print(sys.executable)"
+        shell: powershell
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@0b1efabc08b657293548b77fb76cc02d26091c7e
+        with:
+          toolchain: stable
+
+      - name: Cache CMake for Windows
+        uses: actions/cache@v4
+        id: windows-cmake-cache
+        with:
+          path: "C:/Program Files/CMake"
+          key: ${{ runner.os }}-cmake-${{ inputs.cmake_version }}
+
+      - name: Install CMake ${{ inputs.cmake_version }} with chocolatey
+        if: steps.windows-cmake-cache.outputs.cache-hit != 'true'
+        run: choco install cmake --version=${{ inputs.cmake_version }} --allow-downgrade
+        shell: powershell
+
+      - name: Install JOM (parallel nmake)
+        run: choco install jom --yes
+        shell: powershell
+
+      - name: Set PATH environment variable
+        run: |
+          echo "export PATH=\"/c/Program Files/CMake/bin:/c/hostedtoolcache/windows/Python/3.10.11/x64:/c/msys64/mingw64/bin:$PATH:/c/Strawberry/c/bin:/c/Strawberry/perl/site/bin:/c/Strawberry/perl/bin:/c/ProgramData/Chocolatey/bin:/c/ProgramData/Chocolatey/lib/jom/tools\"" >> ~/.bash_profile
+        shell: msys2 {0}
+
+      - name: Set ACLOCAL_PATH environment variable
+        run: |
+          echo "export ACLOCAL_PATH=/c/msys64/usr/share/aclocal" >> ~/.bash_profile
+        shell: msys2 {0}
+
+      - name: Add Rust to PATH for msys2
+        run: |
+          echo "export PATH=\"/c/Users/runneradmin/.cargo/bin:\$PATH\"" >> ~/.bash_profile
+        shell: msys2 {0}
+
+      - name: Display environment variables
+        run: |
+          echo $PATH
+          echo $ACLOCAL_PATH
+          which python
+          which python3
+          which cmake
+          rustc --version || echo "WARNING: Rust not found in msys2 PATH"
+          cargo --version || echo "WARNING: Cargo not found in msys2 PATH"
+        shell: msys2 {0}
+
+      - name: Prepare Qt folder
+        run: mkdir -p /c/qt
+        shell: msys2 {0}
+
+      - name: Install Qt ${{ inputs.qt_version }}
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '${{ inputs.qt_version }}'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
+          dir: "c:/"
+          install-deps: 'false'
+          modules: ${{ env.WINDOWS_QT6_MODULES }}
+          archives: ${{ env.WINDOWS_QT6_ARCHIVES }}
+          cache: false
+          setup-python: 'false'
+          tools: 'tools_qtcreator'
+          set-env: 'true'
+          tools-only: 'false'
+          aqtversion: '==3.2.*'
+
+      - name: Install Python dependencies
+        run: python3 -m pip install --user --upgrade -r ./requirements.txt
+        shell: msys2 {0}
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.6
+        with:
+          version: "v0.8.1"
+
+      - name: Configure sccache for msys2
+        run: |
+          echo "export PATH=\"/c/Users/runneradmin/.cargo/bin:\$PATH\"" >> ~/.bash_profile
+          sccache --version || echo "WARNING: sccache not found in PATH"
+        shell: msys2 {0}
+
+      - name: Configure OpenRV Custom
+        run: |
+          cmake --version
+          export QT_HOME=c:/Qt/${{ inputs.qt_version }}/msvc2019_64
+          cmake -B _build -G "Visual Studio 17 2022" -A x64 \
+            -DRV_DEPS_WIN_PERL_ROOT=c:/Strawberry/perl/bin \
+            -DCMAKE_BUILD_TYPE=${{ inputs.build_type }} \
+            -DRV_DEPS_QT_LOCATION=$QT_HOME \
+            -DRV_VFX_PLATFORM=${{ inputs.vfx_platform }} \
+            -DRV_FFMPEG_NON_FREE_DECODERS_TO_ENABLE="aac;aac_at;aac_fixed;aac_latm;ac3;bink;binkaudio_dct;binkaudio_rdft;dnxhd;dvvideo;prores;qtrle;vp9;vp9_cuvid;vp9_mediacodec;vp9_qsv;vp9_rkmpp;vp9_v4l2m2m" \
+            -DRV_FFMPEG_NON_FREE_ENCODERS_TO_ENABLE="aac;aac_mf;dnxhd;dvvideo;prores;qtrle;vp9_qsv;vp9_vaapi"
+        shell: msys2 {0}
+
+      - name: Build OpenRV dependencies
+        id: build_deps
+        run: cmake --build _build --config ${{ inputs.build_type }} --target dependencies --parallel=$(python -c 'import os; print(os.cpu_count())') -v
+        shell: msys2 {0}
+
+      - name: Build OpenRV main executable
+        run: cmake --build _build --config ${{ inputs.build_type }} --target main_executable --parallel=$(python -c 'import os; print(os.cpu_count())') -v
+        shell: msys2 {0}
+
+      - name: Tests
+        continue-on-error: true
+        run: |
+          ls -al _build/stage/app/bin
+          ctest --test-dir _build -C ${{ inputs.build_type }} --extra-verbose
+        shell: msys2 {0}
+
+      - name: Install OpenRV
+        run: cmake --install _build --prefix $(pwd)/_install --config ${{ inputs.build_type }}
+        shell: msys2 {0}
+
+      - name: Create zip file of OpenRV installation
+        run: |
+          cd _install
+          zip -r ../OpenRV-windows-x86_64-${{ inputs.build_type }}-${{ inputs.vfx_platform }}-custom.zip *
+        shell: msys2 {0}
+
+      - name: Upload OpenRV Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenRV-windows-x86_64-${{ inputs.build_type }}-${{ inputs.vfx_platform }}-custom
+          path: OpenRV-windows-x86_64-${{ inputs.build_type }}-${{ inputs.vfx_platform }}-custom.zip
+          retention-days: 14
